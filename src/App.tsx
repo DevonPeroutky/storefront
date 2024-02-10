@@ -1,67 +1,72 @@
-import React, {useState} from 'react';
+import React, {useEffect} from 'react';
 import './App.css';
-import Webcam from "react-webcam";
+import {RecoilRoot, useRecoilState,} from 'recoil';
 
-const videoConstraints = {
-  width: 1280,
-  height: 720,
-  facingMode: "user"
-};
+import {imageState} from "./data/local-state/images";
+import {WebcamCapture} from "./app_components/webcam-capture";
+import {Roast, Status} from "./data/types";
+import {useUploadImage} from "./data/client/image";
+import {getCurrentTime} from "src/utils";
 
-const WebcamCapture = () => {
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  return (
-    <div>
-      <Webcam
-        audio={false}
-        height={720}
-        screenshotFormat="image/jpeg"
-        width={1280}
-        videoConstraints={videoConstraints}
-      >
-        { /* @ts-ignore */}
-        {({getScreenshot}) => (
-            <button
-                onClick={() => {
-                  const imageSrc = getScreenshot()
-                  console.log("Got screenshot: ", imageSrc);
-                  setImageSrc(imageSrc);
-                }}
-            >
-              Capture photo
-            </button>
-        )}
-      </Webcam>
-      <br/>
-      <ImageDisplay imageSrc={imageSrc}/>
-    </div>
-  )
-};
-
-const ImageDisplay = (props: { imageSrc: string | null }) => {
-  const {imageSrc} = props;
+const ImageDisplay = (props: Roast) => {
+  console.log(props)
+  const {imageSrc, status, prompt} = props;
   if (!imageSrc) {
     return null;
   }
   return (
-      <div>
+      <div className="flex items-center">
         <img src={imageSrc} alt="photo"/>
+        <ImageStateDisplay {...props} />
       </div>
   );
 }
 
+const ImageStateDisplay = (roast: Roast) => {
+  if (roast.status === Status.Pending) {
+    return <div>Hold on asshole...</div>
+  }
+  return <div>{roast.roast}</div>
+}
+
 function App() {
   return (
-      <div className="App">
-        <header className="App-header">
-          <h1 className="text-3xl font-bold underline">
-            Hello world!
-          </h1>
+      <RecoilRoot>
+        {/*<Toaster />*/}
+        <div className="App">
+          {/*<Tabs />*/}
           <WebcamCapture/>
           <br/>
-        </header>
-      </div>
+        </div>
+        <ImageList />
+      </RecoilRoot>
   );
+}
+
+const ImageList = () => {
+  const uploadImage = useUploadImage()
+  const [roasts, setRoasts] = useRecoilState(imageState);
+
+  useEffect(() => {
+    const pendingRoast = roasts.find(r => r.status === Status.Pending)
+    if (pendingRoast) {
+
+      // toast("Image has been submitted for review", {
+      //   description: getCurrentTime(),
+      //   action: {
+      //     label: "Undo",
+      //     onClick: () => toast("There's no going back"),
+      //   },
+      // })
+      uploadImage(pendingRoast.imageSrc)
+    }
+  }, [roasts]);
+
+  return (
+    <div>
+      { roasts.map((roast, idx) => (<ImageDisplay key={idx} {...roast}/>)) }
+    </div>
+  )
 }
 
 export default App;
